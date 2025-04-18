@@ -27,7 +27,6 @@ def load_user(user_id):
         return User(*user)
     return None
 
-@app.before_first_request
 def setup():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -53,6 +52,7 @@ def setup():
     )''')
     conn.commit()
     conn.close()
+setup()
 
 @app.route('/')
 def home():
@@ -89,9 +89,24 @@ def dashboard():
                                JOIN users u ON l.user_id = u.id
                                JOIN customers c ON l.customer_id = c.id''').fetchall()
         conn.close()
-        total_out = sum(l[2] * l[3] for l in logs)
-        total_in = sum(l[2] * l[4] for l in logs)
-        return render_template('manager_dashboard.html', logs=logs, total_out=total_out, total_in=total_in)
+        total_out = 0
+        total_in = 0
+        net_logs = []
+
+        for log in logs:
+            username, customer_name, hours, worker_monthly, customer_monthly = log
+            try:
+                hourly_worker = worker_monthly / 160 if worker_monthly else 0
+                hourly_customer = customer_monthly / 160 if customer_monthly else 0
+                cost = hours * hourly_worker
+                revenue = hours * (hourly_customer - hourly_worker)
+            except:
+                cost = 0
+                revenue = 0
+            total_out += cost
+            total_in += revenue
+            net_logs.append((username, customer_name, hours, cost, revenue))
+        return render_template('manager_dashboard.html', logs=net_logs, total_out=total_out, total_in=total_in)
     else:
         customers = conn.execute("SELECT id, name FROM customers").fetchall()
         conn.close()
