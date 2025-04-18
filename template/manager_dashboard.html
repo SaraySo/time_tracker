@@ -1,16 +1,22 @@
-<h2>Manager Dashboard</h2>
-<table border="1">
-  <tr>
-    <th>Worker</th><th>Customer</th><th>Hours</th><th>Cost</th><th>Revenue</th>
-  </tr>
-  {% for log in logs %}
+<!DOCTYPE html>
+<html>
+<head><title>Manager Dashboard</title></head>
+<body>
+  <h2>Manager Dashboard</h2>
+  <table border="1">
     <tr>
-      <td>{{ log[0] }}</td><td>{{ log[1] }}</td><td>{{ log[2] }}</td>
-      <td>${{ "%.2f"|format(log[2]*log[3]) }}</td>
-      <td>${{ "%.2f"|format(log[2]*log[4]) }}</td>
+      <th>Worker</th><th>Customer</th><th>Hours</th><th>Cost</th><th>Revenue</th>
     </tr>
-  {% endfor %}
-</table>
-<p><strong>Total Paid Out:</strong> ${{ "%.2f"|format(total_out) }}</p>
-<p><strong>Total Paid In:</strong> ${{ "%.2f"|format(total_in) }}</p>
-<a href="{{ url_for('logout') }}">Logout</a>
+    {% for log in logs %}
+      <tr>
+        <td>{{ log[0] }}</td><td>{{ log[1] }}</td><td>{{ log[2] }}</td>
+        <td>{{ "%.2f"|format(log[3]) }} ₪</td>
+        <td>{{ "%.2f"|format(log[4]) }} ₪</td>
+      </tr>
+    {% endfor %}
+  </table>
+  <p><strong>Total Paid Out:</strong> ${{ "%.2f"|format(total_out) }}</p>
+  <p><strong>Total Paid In:</strong> ${{ "%.2f"|format(total_in) }}</p>
+  <a href="{{ url_for('logout') }}">Logout</a>
+</body>
+</html>
