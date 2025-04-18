@@ -1,115 +1,270 @@
-from flask import Flask, render_template, redirect, url_for, request, session
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+
 import sqlite3
-import os
 
-app = Flask(__name__)
-app.secret_key = 'secretkey'  # Change this in production
+conn = sqlite3.connect('database.db')
+cursor = conn.cursor()
 
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
+# Create tables
+cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    password TEXT,
+    role TEXT,
+    pay_rate REAL
+)''')
 
-DB_NAME = 'database.db'
+cursor.execute('''CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    pay_rate REAL
+)''')
 
-class User(UserMixin):
-    def __init__(self, id_, username, role):
-        self.id = id_
-        self.username = username
-        self.role = role
+cursor.execute('''CREATE TABLE IF NOT EXISTS logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    customer_id INTEGER,
+    hours REAL,
+    FOREIGN KEY(user_id) REFERENCES users(id),
+    FOREIGN KEY(customer_id) REFERENCES customers(id)
+)''')
 
-@login_manager.user_loader
-def load_user(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    user = conn.execute("SELECT id, username, role FROM users WHERE id=?", (user_id,)).fetchone()
-    conn.close()
-    if user:
-        return User(*user)
-    return None
+# Add workers
+workers = [
+    ('איריס', '1234', 'worker', 100),
+    ('מאי', '1234', 'worker', 100),
+    ('יורי', '1234', 'worker', 100),
+    ('אולגה', '1234', 'worker', 100),
+    ('חדווה', '1234', 'worker', 100)
+]
 
-@app.before_first_request
-def setup():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT,
-        password TEXT,
-        role TEXT,
-        pay_rate REAL
-    )''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS customers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        pay_rate REAL
-    )''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        customer_id INTEGER,
-        hours REAL,
-        FOREIGN KEY(user_id) REFERENCES users(id),
-        FOREIGN KEY(customer_id) REFERENCES customers(id)
-    )''')
-    conn.commit()
-    conn.close()
+# Add manager
+manager = ('רן', 'admin', 'manager', 0)
 
-@app.route('/')
-def home():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+for user in workers:
+    cursor.execute("INSERT INTO users (username, password, role, pay_rate) VALUES (?, ?, ?, ?)", user)
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        conn = sqlite3.connect(DB_NAME)
-        user = conn.execute("SELECT id, username, role FROM users WHERE username=? AND password=?",
-                            (username, password)).fetchone()
-        conn.close()
-        if user:
-            login_user(User(*user))
-            return redirect(url_for('dashboard'))
-    return render_template('login.html')
+cursor.execute("INSERT INTO users (username, password, role, pay_rate) VALUES (?, ?, ?, ?)", manager)
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
+# Add all customers from your file
+customers = [
+    ('עיצוב חיים', 4680.0),
+    ('ש. מאור', nan),
+    ('קונטינג\'נסי - אסתר מתן ייעוץ', nan),
+    ('וואן אייטין ייעוץ בע"מ', nan),
+    ('רזדן', nan),
+    ('נודיסקין', nan),
+    ('בלו קיטרהיט בע"מ', nan),
+    ('שפירא אדיוקיישן', 1350.0),
+    ('איריס שפירא', nan),
+    ('טי אס איי תומש', nan),
+    ('תומר שוחט', 351.0),
+    ('ירון הירש הנדסה', 600.0),
+    ('קיוביק', nan),
+    ('נגא פלורה', nan),
+    ('או טי טק', nan),
+    ('פאנל פרויקט המדגם', 408.0),
+    ('גוסתרלי', 633.75),
+    ('לילה', nan),
+    ('ד"ר בורבין גוף ונפש', 1150.0),
+    ('ד"ר בורבין עצמאי', nan),
+    ('ר.נ.א אריאל', 877.5),
+    ('פאים הולדינגס בע"מ', nan),
+    ('ו ע בינה', nan),
+    ('קלובר וולף', nan),
+    ('קלובר אלפא', 3510.0),
+    ('אקסוורק', 1294.0),
+    ('ורילייט אנרגיה בע"מ', 702.0),
+    ('קמביו שירותי מטבע בע"מ', nan),
+    ('די אל אי די ייזום ופי', nan),
+    ('כל טקסט - בוטיק של מילים', 1521.0),
+    ('קנטור מטרסו ליאה', nan),
+    ('יצחק שרה', nan),
+    ('אורנה נדב פלד בע"מ', 1500.0),
+    ('ר. ה. א פתרונות והשקעות', 800.0),
+    ('א.א. מיקי וניר - בתי ספר לכדורגל', 850.0),
+    ('מיקי כהן', 175.0),
+    ('ניר טהר לב', 175.0),
+    ('פיין קפיטל השקעות בע"מ', nan),
+    ('ליאור יצחק פורמידבלה', 1287.0),
+    ('טראוביץ אינספייר', nan),
+    ('מדיקר', 819.0),
+    ('ע.מ שמירה', nan),
+    ('קלאסיקה אינטרנשינל', nan),
+    ('קלאסיקה דיוטיפרי', nan),
+    ('נפולוני', nan),
+    ('מניקול', 1638.0),
+    ('סי בי אן אר', nan),
+    ('נחום דימריץ', nan),
+    ('ימבו בע"מ', 900.0),
+    ('וואטשיסים בע"מ', 1400.0),
+    ('טיה סיסטמס', 750.0),
+    ('דאטאסנס', 1100.0),
+    ('חי בריא', 1170.0),
+    ('גט רייטל', nan),
+    ('אלטרנטיב ריגלוב', nan),
+    ('א.ר.פ ניהול מסעדות', nan),
+    ('בר און', nan),
+    ('פרה פרה', 1600.0),
+    ('חברה של אלן', nan),
+    ('פלדמן', nan),
+    ('דמי רובין', nan),
+    ('ש.מ שווקים', nan),
+    ('אנקונה רפי', nan),
+    ('לובינסקי מיכל', 351.0),
+    ('יוחאי רדין', nan),
+    ('מלכה ערן', nan),
+    ('עורקבי אמציה', nan),
+    ('פידל חגי', 650.0),
+    ('עמירה אילן', nan),
+    ('עמיקם שורר', 351.0),
+    ('שמואל שוורצנברג', 350.0),
+    ('פוריה שחף', 409.5),
+    ('קרן אהרון', 500.0),
+    ('אוקסמן איגור', 468.0),
+    ('לב גודי מרטין', 409.5),
+    ('מיקי פרי', nan),
+    ('איציק עציוני', nan),
+    ('יגב אייל', 409.5),
+    ('כהן אסף', 351.0),
+    ('לפיד מיכל', 351.0),
+    ('לסרי מיכל', 750.0),
+    ('יצחקי ניסים', 351.0),
+    ('שילין שרית', 624.0),
+    ('שילין יקיר', 624.0),
+    ('נירה וינר', 351.0),
+    ('גרניט ברק', 351.0),
+    ('סאסי ניסים', 292.5),
+    ('פרידמן איימי', nan),
+    ('רייכמן אסנת', 428.0),
+    ('למברג נועם', 351.0),
+    ('חכימי מתן', nan),
+    ('איתמר שי', 300.0),
+    ('סתיו רוה', 350.0),
+    ('אורן מיכאל', 410.0),
+    ('עמנואל בוארון', nan),
+    ('חונה נועה', 351.0),
+    ('הורניק איריס', 725.0),
+    ('דורון טולדו', 409.5),
+    ('עזי לוי', nan),
+    ('שובל ויונטה', 468.0),
+    ('משה פרל', 468.0),
+    ('יפעת עברון', 292.5),
+    ('גיא פולטורק', 409.5),
+    ('קבוצת סרבי נדלן בע"מ', nan),
+    ('ש.י.ל.ת', 2950.0),
+    ('עמיר צביעת רהיטים', nan),
+    ('סרבי השקעות בע"מ', nan),
+    ('רונן זכריה השקעות', nan),
+    ('אינפנדיטי', nan),
+    ('עמי בר לב', nan),
+    ('אסטראטג', nan),
+    ('ראשונים במילניום', 1170.0),
+    ('היידה השקעות', 1100.0),
+    ('א.ג.מ.א אחזקות בע"מ', 700.0),
+    ('אינפומנסרז בע"מ', 1404.0),
+    ('ליפז', nan),
+    ('גולדברגר דוד מנחם ו/או שרון', 351.0),
+    ('אלפריס', 600.0),
+    ('תחושת בטן', 1170.0),
+    ('ד. לוסקי פיננסים', 2000.0),
+    ('גרינפלד שאול יחזקאל', 702.0),
+    ('אילנור בע"מ', 750.0),
+    ('מד - דיוויס מחקר ופיתוח', 850.0),
+    ('ג"מ אינט בע"מ', 877.5),
+    ('עתידים (מ.ל) שווקים פי', 416.67),
+    ('אלוביץ גיא', 351.0),
+    ('גרוסמן דוד', 468.0),
+    ('ק.מ.ר שרותי רכב בע"מ', 351.0),
+    ('היפר חלף - מרכז חלפים למ', 1521.0),
+    ('רמדאה ייעוץ ניהול והשקעות', None),
+    ('ליקובה בע"מ', 700.0),
+    ('גל גורג אלי', None),
+    ('הוהנשטין מאיר', None),
+    ('אינומופ', 585.0),
+    ('טריפד', 450.0),
+    ('מירי', nan),
+    ('גולדמד טור', nan),
+    ('אלה שוורצמן', 936.0),
+    ('עטר אור חיים', 300.0),
+    ('חזן אור', 351.0),
+    ('בארד שחר אברהם', 350.0),
+    ('בר נהור חיים אליעזר', 300.0),
+    ('עומר שרון', 351.0),
+    ('איתן פינטו', 350.0),
+    ('אבישי חוזה', 410.0),
+    ('אלעד כהן', 936.0),
+    ('תמי מאור', 321.75),
+    ('פרידמן מורן', 351.0),
+    ('מלי גיטלבנד', 421.0),
+    ('עינת ברכה', 409.5),
+    ('שני רצון', 468.0),
+    ('אביעד אורבך', 351.0),
+    ('רדין גלבוע שולמית', 468.0),
+    ('חיים קורין', 200.0),
+    ('פליקס שכמן', 409.5),
+    ('יעקב רחמים', 351.0),
+    ('חיים מזרחי', 350.0),
+    ('אלדד דניאל פיצה פנמה', 650.0),
+    ('אסתי ברוקמן', 234.0),
+    ('אילן טורבינר', 468.0),
+    ('אדיר תורג\'מן', 351.0),
+    ('שליו טל', 300.0),
+    ('שפיצר קורן גלית', 936.0),
+    ('ויוריקה יששכרוב', nan),
+    ('אברהם סרבי', 175.0),
+    ('עדי חסדאי', 2223.0),
+    ('חיים אטלן', 702.0),
+    ('דניאלי כהן ענת', 585.0),
+    ('ענת טרנר', 351.0),
+    ('אבי נאווי', 350.0),
+    ('אביחי גוטמן', 351.0),
+    ('יעל גרינשפון', 250.0),
+    ('סגיב דור', 351.0),
+    ('לינור ארגנטרו', 292.5),
+    ('חמוטל בורכוב', 351.0),
+    ('שישו ייזום ופיתוח בע"מ', 600.0),
+    ('אגרע פיין', 300.0),
+    ('באלי ארבע', 300.0),
+    ('יוטו טכנולוגיות', 700.0),
+    ('קובי לוביץ', 702.0),
+    ('חביב גאוטכניקה', 936.0),
+    ('ליראג', 925.0),
+    ('אי גי די גרופ בע"מ טישלר גרופ', 585.0),
+    ('די אי אם ניהול סיכונים', 819.0),
+    ('גרין פורסט הולדינגס', 819.0),
+    ('רוחמה שרון', 500.0),
+    ('אופנת בונו נטלי בע"מ', 3744.0),
+    ('יוסף טהורי בע"מ', 585.0),
+    ('א.ח. אשנב בע"מ', 9360.0),
+    ('ת.ק אינדיגו נכסים', 351.0),
+    ('שופן שלמה', 175.5),
+    ('אסף אדרי', 1483.0),
+    ('ברכה דניאל', 300.0),
+    ('ברלה פתרונות סביבתיים בע"מ', 585.0),
+    ('תל-אביבי חיים ו/או שרה', 1170.0),
+    ('בסון אייל', 351.0),
+    ('לודוס עולם הספורט בע""מ', 936.0),
+    ('ג""מ סופט בע""מ', 877.5),
+    ('טי.אס.אי תומש השקעות בע"מ', 850.0),
+    ('מאור אייל / תמר', 146.25),
+    ('סי - אליאנס בע"מ', 1450.0),
+    ('בן ארצי חנה', 165.75),
+    ('פרל נעם-ברק', 195.0),
+    ('ליברמן עמוס ישראל זאב', 448.5),
+    ('פרי מיכאל ו/או סימה', 500.0),
+    ('טיטניום אביר בע"מ', 1600.0),
+    ('נאוי אברהם ו/או שרון', 351.0),
+    ('מדפקר בע"מ', 682.5),
+    ('סופיסטיקייט אינווסטמנטס בע"מ', 800.0),
+    ('ליילה גופי תאורה א.י בע""מ', 950.0),
+    ('אשכנזי אוהד', 2000.0),
+    ('עזתי אהרן ו/או שלומית', 245.83),
+    ('הרא""ה מרום השקעות בע""מ', 1989.0),
+]
+for customer in customers:
+    cursor.execute("INSERT OR IGNORE INTO customers (name, pay_rate) VALUES (?, ?)", customer)
+    cursor.execute("UPDATE customers SET pay_rate=? WHERE name=?", (customer[1], customer[0]))
 
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    conn = sqlite3.connect(DB_NAME)
-    if current_user.role == 'manager':
-        logs = conn.execute('''SELECT u.username, c.name, l.hours, u.pay_rate, c.pay_rate FROM logs l
-                               JOIN users u ON l.user_id = u.id
-                               JOIN customers c ON l.customer_id = c.id''').fetchall()
-        conn.close()
-        total_out = sum(l[2] * l[3] for l in logs)
-        total_in = sum(l[2] * l[4] for l in logs)
-        return render_template('manager_dashboard.html', logs=logs, total_out=total_out, total_in=total_in)
-    else:
-        customers = conn.execute("SELECT id, name FROM customers").fetchall()
-        conn.close()
-        return render_template('worker_dashboard.html', customers=customers)
-
-@app.route('/submit_hours', methods=['POST'])
-@login_required
-def submit_hours():
-    if current_user.role != 'worker':
-        return 'Unauthorized', 403
-    customer_id = request.form['customer_id']
-    hours = float(request.form['hours'])
-    conn = sqlite3.connect(DB_NAME)
-    conn.execute("INSERT INTO logs (user_id, customer_id, hours) VALUES (?, ?, ?)",
-                 (current_user.id, customer_id, hours))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('dashboard'))
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+conn.commit()
+conn.close()
+print("✅ Database initialized with users and customers.")
