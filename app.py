@@ -282,8 +282,8 @@ def rates():
         conn.close()
         return redirect(url_for('rates'))
 
-    users = cursor.execute("SELECT id, username, role, pay_rate FROM users ORDER BY role DESC, username").fetchall()
-    customers = cursor.execute("SELECT id, name, pay_rate FROM customers ORDER BY name").fetchall()
+    users = cursor.execute("SELECT id, username, role, pay_rate FROM users GROUP BY username, id, role, pay_rate ORDER BY role DESC, username").fetchall()
+    customers = cursor.execute("SELECT id, name, pay_rate FROM customers GROUP BY name, id, pay_rate ORDER BY name").fetchall()
     conn.close()
     return render_template('manager_rates.html', users=users, customers=customers)
 

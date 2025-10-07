@@ -24,7 +24,7 @@
           <h4 class="card-title mb-3">Workers monthly pay (₪/month)</h4>
           <div class="table-responsive">
             <table class="table table-sm align-middle">
-              <thead><tr><th>Name</th><th>Role</th><th>Monthly Pay</th></tr></thead>
+              <thead><tr><th>Name</th><th>Role</th><th>Monthly Pay</th><th>Actions</th></tr></thead>
               <tbody>
                 {% for u in users %}
                 <tr>
@@ -32,6 +32,13 @@
                   <td>{{ u[2] }}</td>
                   <td style="max-width:180px">
                     <input name="user_{{ u[0] }}" class="form-control form-control-sm" type="number" step="0.01" value="{{ '' if u[3] is none else u[3] }}" placeholder="e.g. 12000">
+                  </td>
+                  <td>
+                    <form method="POST" action="{{ url_for('rates') }}" onsubmit="return confirm('Delete this worker? This will not delete their past logs.')">
+                      <input type="hidden" name="action" value="delete_user">
+                      <input type="hidden" name="delete_user_id" value="{{ u[0] }}">
+                      <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                    </form>
                   </td>
                 </tr>
                 {% endfor %}
@@ -47,13 +54,20 @@
           <h4 class="card-title mb-3">Customers monthly fees (₪/month)</h4>
           <div class="table-responsive">
             <table class="table table-sm align-middle">
-              <thead><tr><th>Customer</th><th>Monthly Fee</th></tr></thead>
+              <thead><tr><th>Customer</th><th>Monthly Fee</th><th>Actions</th></tr></thead>
               <tbody>
                 {% for c in customers %}
                 <tr>
                   <td>{{ c[1] }}</td>
                   <td style="max-width:180px">
                     <input name="customer_{{ c[0] }}" class="form-control form-control-sm" type="number" step="0.01" value="{{ '' if c[2] is none else c[2] }}" placeholder="e.g. 3500">
+                  </td>
+                  <td>
+                    <form method="POST" action="{{ url_for('rates') }}" onsubmit="return confirm('Delete this customer? This will not delete past logs.')">
+                      <input type="hidden" name="action" value="delete_customer">
+                      <input type="hidden" name="delete_customer_id" value="{{ c[0] }}">
+                      <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                    </form>
                   </td>
                 </tr>
                 {% endfor %}
