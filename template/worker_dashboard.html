@@ -11,7 +11,10 @@
         <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" style="height:28px;width:auto;object-fit:contain">
         Hi, {{ current_user.username }}
       </span>
-      <a class="btn btn-outline-secondary" href="{{ url_for('logout') }}">Logout</a>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="{{ url_for('list_logs') }}">Manage Logs</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('logout') }}">Logout</a>
+      </div>
     </div>
   </nav>
   <div class="container">

@@ -145,7 +145,7 @@ def dashboard():
 @app.route('/submit_hours', methods=['POST'])
 @login_required
 def submit_hours():
-    if current_user.role != 'worker':
+    if current_user.role not in ('worker', 'manager'):
         return 'Unauthorized', 403
     customer_id = request.form['customer_id']
     hours = float(request.form['hours'])
@@ -157,6 +157,83 @@ def submit_hours():
     conn.commit()
     conn.close()
     return redirect(url_for('dashboard'))
+
+@app.route('/work')
+@login_required
+def work_form():
+    # A worker-style page available to both workers and managers for logging their own work
+    conn = sqlite3.connect(DB_NAME)
+    customers = conn.execute("SELECT id, name FROM customers ORDER BY name").fetchall()
+    recent_logs = conn.execute('''SELECT c.name, l.hours, IFNULL(l.description, ''), IFNULL(l.work_date, '')
+                                  FROM logs l
+                                  JOIN customers c ON l.customer_id = c.id
+                                  WHERE l.user_id = ?
+                                  ORDER BY COALESCE(l.work_date, '') DESC, l.id DESC
+                                  LIMIT 20''', (current_user.id,)).fetchall()
+    conn.close()
+    return render_template('worker_dashboard.html', customers=customers, recent_logs=recent_logs)
+
+@app.route('/logs')
+@login_required
+def list_logs():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Manager can see all or filter by user_id; workers see only their own
+    user_filter = request.args.get('user_id') if current_user.role == 'manager' else str(current_user.id)
+    if user_filter:
+        rows = cursor.execute('''SELECT l.id, IFNULL(l.work_date,''), c.name, l.hours, IFNULL(l.description,''), u.username
+                                 FROM logs l
+                                 JOIN customers c ON l.customer_id=c.id
+                                 JOIN users u ON l.user_id=u.id
+                                 WHERE l.user_id=?
+                                 ORDER BY COALESCE(l.work_date, '' ) DESC, l.id DESC''', (user_filter,)).fetchall()
+    else:
+        rows = cursor.execute('''SELECT l.id, IFNULL(l.work_date,''), c.name, l.hours, IFNULL(l.description,''), u.username
+                                 FROM logs l
+                                 JOIN customers c ON l.customer_id=c.id
+                                 JOIN users u ON l.user_id=u.id
+                                 ORDER BY COALESCE(l.work_date, '' ) DESC, l.id DESC''').fetchall()
+    # Needed for edit form selects
+    customers = cursor.execute('SELECT id, name FROM customers ORDER BY name').fetchall()
+    users = cursor.execute('SELECT id, username FROM users ORDER BY username').fetchall()
+    conn.close()
+    return render_template('logs.html', rows=rows, customers=customers, users=users, user_filter=user_filter)
+
+@app.route('/logs/delete/<int:log_id>', methods=['POST'])
+@login_required
+def delete_log(log_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Ensure permissions: workers can delete only their own
+    if current_user.role == 'worker':
+        cursor.execute('DELETE FROM logs WHERE id=? AND user_id=?', (log_id, current_user.id))
+    else:
+        cursor.execute('DELETE FROM logs WHERE id=?', (log_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('list_logs'))
+
+@app.route('/logs/edit/<int:log_id>', methods=['POST'])
+@login_required
+def edit_log(log_id):
+    customer_id = request.form.get('customer_id')
+    hours = request.form.get('hours')
+    work_date = request.form.get('work_date')
+    description = request.form.get('description', '')
+    assign_user_id = request.form.get('user_id') if current_user.role == 'manager' else str(current_user.id)
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    # Permissions: workers can modify only their own logs
+    if current_user.role == 'worker':
+        cursor.execute('''UPDATE logs SET customer_id=?, hours=?, work_date=?, description=?
+                          WHERE id=? AND user_id=?''', (customer_id, float(hours), work_date, description, log_id, current_user.id))
+    else:
+        cursor.execute('''UPDATE logs SET customer_id=?, hours=?, work_date=?, description=?, user_id=?
+                          WHERE id=?''', (customer_id, float(hours), work_date, description, assign_user_id, log_id))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('list_logs'))
 
 @app.route('/rates', methods=['GET', 'POST'])
 @login_required
