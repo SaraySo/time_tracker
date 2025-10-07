@@ -278,6 +278,19 @@ def rates():
                         (name, rate),
                     )
                     conn.commit()
+        elif action == 'delete_user':
+            uid = request.form.get('delete_user_id')
+            if uid:
+                # Avoid accidental deletion of the only manager
+                role = cursor.execute("SELECT role FROM users WHERE id=?", (uid,)).fetchone()
+                if role and role[0] != 'manager':
+                    cursor.execute("DELETE FROM users WHERE id=?", (uid,))
+                    conn.commit()
+        elif action == 'delete_customer':
+            cid = request.form.get('delete_customer_id')
+            if cid:
+                cursor.execute("DELETE FROM customers WHERE id=?", (cid,))
+                conn.commit()
         # After post actions, redirect to GET to avoid resubmission
         conn.close()
         return redirect(url_for('rates'))
