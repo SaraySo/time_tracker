@@ -45,37 +45,27 @@
             <tbody>
               {% for r in rows %}
               <tr>
-                <form method="POST" action="{{ url_for('edit_log', log_id=r[0]) }}" class="row g-1">
-                  <td style="min-width:120px"><input class="form-control form-control-sm" type="date" name="work_date" value="{{ r[1] }}"></td>
-                  <td>
-                    <select name="customer_id" class="form-select form-select-sm">
-                      {% for c in customers %}
-                        <option value="{{ c[0] }}" {% if c[1]==r[2] %}selected{% endif %}>{{ c[1] }}</option>
-                      {% endfor %}
-                    </select>
-                  </td>
-                  <td style="max-width:110px"><input class="form-control form-control-sm" type="number" step="0.1" name="hours" value="{{ r[3] }}"></td>
-                  <td><input class="form-control form-control-sm" type="text" name="description" value="{{ r[4] }}"></td>
-                  <td>
-                    {% if current_user.role == 'manager' %}
-                    <select name="user_id" class="form-select form-select-sm">
-                      {% for u in users %}
-                        <option value="{{ u[0] }}" {% if u[1]==r[5] %}selected{% endif %}>{{ u[1] }}</option>
-                      {% endfor %}
-                    </select>
-                    {% else %}
-                    {{ r[5] }}
-                    {% endif %}
-                  </td>
-                  <td>
-                    <div class="d-flex gap-2">
-                      <button class="btn btn-sm btn-primary" type="submit">Save</button>
-                      <form method="POST" action="{{ url_for('delete_log', log_id=r[0]) }}" onsubmit="return confirm('Delete this log?')">
-                        <button class="btn btn-sm btn-danger" type="submit">Delete</button>
-                      </form>
-                    </div>
-                  </td>
-                </form>
+                <!-- separate edit form per row -->
+                <form id="edit-{{ r[0] }}" method="POST" action="{{ url_for('edit_log', log_id=r[0]) }}"></form>
+                <td style="min-width:120px"><input class="form-control form-control-sm" type="date" name="work_date" value="{{ r[1] }}" form="edit-{{ r[0] }}"></td>
+                <td>
+                  <select name="customer_id" class="form-select form-select-sm" form="edit-{{ r[0] }}">
+                    {% for c in customers %}
+                      <option value="{{ c[0] }}" {% if c[1]==r[2] %}selected{% endif %}>{{ c[1] }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td style="max-width:110px"><input class="form-control form-control-sm" type="number" step="0.1" name="hours" value="{{ r[3] }}" form="edit-{{ r[0] }}"></td>
+                <td><input class="form-control form-control-sm" type="text" name="description" value="{{ r[4] }}" form="edit-{{ r[0] }}"></td>
+                <td>{{ r[5] }}</td>
+                <td>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-primary" type="submit" form="edit-{{ r[0] }}">Save</button>
+                    <form method="POST" action="{{ url_for('delete_log', log_id=r[0]) }}" onsubmit="return confirm('Delete this log?')">
+                      <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                    </form>
+                  </div>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
