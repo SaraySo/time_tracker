@@ -178,21 +178,14 @@ def work_form():
 def list_logs():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Manager can see all or filter by user_id; workers see only their own
-    user_filter = request.args.get('user_id') if current_user.role == 'manager' else str(current_user.id)
-    if user_filter:
-        rows = cursor.execute('''SELECT l.id, IFNULL(l.work_date,''), c.name, l.hours, IFNULL(l.description,''), u.username
-                                 FROM logs l
-                                 JOIN customers c ON l.customer_id=c.id
-                                 JOIN users u ON l.user_id=u.id
-                                 WHERE l.user_id=?
-                                 ORDER BY COALESCE(l.work_date, '' ) DESC, l.id DESC''', (user_filter,)).fetchall()
-    else:
-        rows = cursor.execute('''SELECT l.id, IFNULL(l.work_date,''), c.name, l.hours, IFNULL(l.description,''), u.username
-                                 FROM logs l
-                                 JOIN customers c ON l.customer_id=c.id
-                                 JOIN users u ON l.user_id=u.id
-                                 ORDER BY COALESCE(l.work_date, '' ) DESC, l.id DESC''').fetchall()
+    # Both roles only manage their own logs
+    user_filter = str(current_user.id)
+    rows = cursor.execute('''SELECT l.id, IFNULL(l.work_date,''), c.name, l.hours, IFNULL(l.description,''), u.username
+                             FROM logs l
+                             JOIN customers c ON l.customer_id=c.id
+                             JOIN users u ON l.user_id=u.id
+                             WHERE l.user_id=?
+                             ORDER BY COALESCE(l.work_date, '' ) DESC, l.id DESC''', (user_filter,)).fetchall()
     # Needed for edit form selects
     customers = cursor.execute('SELECT id, name FROM customers ORDER BY name').fetchall()
     users = cursor.execute('SELECT id, username FROM users ORDER BY username').fetchall()
@@ -204,11 +197,8 @@ def list_logs():
 def delete_log(log_id):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Ensure permissions: workers can delete only their own
-    if current_user.role == 'worker':
-        cursor.execute('DELETE FROM logs WHERE id=? AND user_id=?', (log_id, current_user.id))
-    else:
-        cursor.execute('DELETE FROM logs WHERE id=?', (log_id,))
+    # Both roles: can delete only their own logs
+    cursor.execute('DELETE FROM logs WHERE id=? AND user_id=?', (log_id, current_user.id))
     conn.commit()
     conn.close()
     return redirect(url_for('list_logs'))
@@ -220,17 +210,12 @@ def edit_log(log_id):
     hours = request.form.get('hours')
     work_date = request.form.get('work_date')
     description = request.form.get('description', '')
-    assign_user_id = request.form.get('user_id') if current_user.role == 'manager' else str(current_user.id)
+    # Only allow editing own logs
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Permissions: workers can modify only their own logs
-    if current_user.role == 'worker':
-        cursor.execute('''UPDATE logs SET customer_id=?, hours=?, work_date=?, description=?
-                          WHERE id=? AND user_id=?''', (customer_id, float(hours), work_date, description, log_id, current_user.id))
-    else:
-        cursor.execute('''UPDATE logs SET customer_id=?, hours=?, work_date=?, description=?, user_id=?
-                          WHERE id=?''', (customer_id, float(hours), work_date, description, assign_user_id, log_id))
+    cursor.execute('''UPDATE logs SET customer_id=?, hours=?, work_date=?, description=?
+                      WHERE id=? AND user_id=?''', (customer_id, float(hours), work_date, description, log_id, current_user.id))
     conn.commit()
     conn.close()
     return redirect(url_for('list_logs'))
