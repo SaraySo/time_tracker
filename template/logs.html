@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Logs</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <nav class="navbar navbar-light bg-white border-bottom mb-4">
+    <div class="container">
+      <span class="navbar-brand d-flex align-items-center gap-2">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" style="height:28px;width:auto;object-fit:contain"> Logs
+      </span>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}">Back</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container vstack gap-3">
+    <form method="GET" class="row g-2 align-items-end">
+      {% if current_user.role == 'manager' %}
+      <div class="col-auto">
+        <label class="form-label">Filter worker</label>
+        <select name="user_id" class="form-select">
+          <option value="">All</option>
+          {% for u in users %}
+          <option value="{{ u[0] }}" {% if user_filter and user_filter|int == u[0] %}selected{% endif %}>{{ u[1] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-auto"><button class="btn btn-primary" type="submit">Apply</button></div>
+    </form>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Date</th><th>Customer</th><th>Hours</th><th>Description</th><th>Worker</th><th style="width:260px">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in rows %}
+              <tr>
+                <form method="POST" action="{{ url_for('edit_log', log_id=r[0]) }}" class="row g-1">
+                  <td style="min-width:120px"><input class="form-control form-control-sm" type="date" name="work_date" value="{{ r[1] }}"></td>
+                  <td>
+                    <select name="customer_id" class="form-select form-select-sm">
+                      {% for c in customers %}
+                        <option value="{{ c[0] }}" {% if c[1]==r[2] %}selected{% endif %}>{{ c[1] }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td style="max-width:110px"><input class="form-control form-control-sm" type="number" step="0.1" name="hours" value="{{ r[3] }}"></td>
+                  <td><input class="form-control form-control-sm" type="text" name="description" value="{{ r[4] }}"></td>
+                  <td>
+                    {% if current_user.role == 'manager' %}
+                    <select name="user_id" class="form-select form-select-sm">
+                      {% for u in users %}
+                        <option value="{{ u[0] }}" {% if u[1]==r[5] %}selected{% endif %}>{{ u[1] }}</option>
+                      {% endfor %}
+                    </select>
+                    {% else %}
+                    {{ r[5] }}
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="d-flex gap-2">
+                      <button class="btn btn-sm btn-primary" type="submit">Save</button>
+                      <form method="POST" action="{{ url_for('delete_log', log_id=r[0]) }}" onsubmit="return confirm('Delete this log?')">
+                        <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </form>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+
