@@ -7,8 +7,8 @@ services:
     envVars:
       - key: SECRET_KEY
         generateValue: true
-    disks:
-      - name: data
-        mountPath: /opt/render/project/src
-        sizeGB: 1
+    disk:
+      name: data
+      mountPath: /opt/render/project/src
+      sizeGB: 1
 
