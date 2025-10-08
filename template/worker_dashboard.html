@@ -12,7 +12,9 @@
         Hi, {{ current_user.username }}
       </span>
       <div class="d-flex gap-2">
-        <a class="btn btn-outline-primary" href="{{ url_for('list_logs') }}">Manage Logs</a>
+        {% if current_user.username == 'טניה' %}
+        <a class="btn btn-outline-success" href="{{ url_for('hours_report') }}">Hours Report</a>
+        {% endif %}
         <a class="btn btn-outline-secondary" href="{{ url_for('logout') }}">Logout</a>
       </div>
     </div>

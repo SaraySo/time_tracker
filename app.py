@@ -1,7 +1,9 @@
-from flask import Flask, render_template, redirect, url_for, request, session
+from flask import Flask, render_template, redirect, url_for, request, session, make_response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import sqlite3
 import os
+import csv
+import io
 
 app = Flask(__name__, template_folder='template')
 app.secret_key = 'secretkey'  # Change this in production
@@ -176,16 +178,25 @@ def work_form():
 @app.route('/logs')
 @login_required
 def list_logs():
+    if current_user.role != 'manager':
+        return 'Unauthorized', 403
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Both roles only manage their own logs
-    user_filter = str(current_user.id)
-    rows = cursor.execute('''SELECT l.id, IFNULL(l.work_date,''), c.name, l.hours, IFNULL(l.description,''), u.username
-                             FROM logs l
-                             JOIN customers c ON l.customer_id=c.id
-                             JOIN users u ON l.user_id=u.id
-                             WHERE l.user_id=?
-                             ORDER BY COALESCE(l.work_date, '' ) DESC, l.id DESC''', (user_filter,)).fetchall()
+    # Manager can see all logs and filter by user
+    user_filter = request.args.get('user_id')
+    if user_filter:
+        rows = cursor.execute('''SELECT l.id, IFNULL(l.work_date,''), c.name, l.hours, IFNULL(l.description,''), u.username
+                                 FROM logs l
+                                 JOIN customers c ON l.customer_id=c.id
+                                 JOIN users u ON l.user_id=u.id
+                                 WHERE l.user_id=?
+                                 ORDER BY COALESCE(l.work_date, '' ) DESC, l.id DESC''', (user_filter,)).fetchall()
+    else:
+        rows = cursor.execute('''SELECT l.id, IFNULL(l.work_date,''), c.name, l.hours, IFNULL(l.description,''), u.username
+                                 FROM logs l
+                                 JOIN customers c ON l.customer_id=c.id
+                                 JOIN users u ON l.user_id=u.id
+                                 ORDER BY COALESCE(l.work_date, '' ) DESC, l.id DESC''').fetchall()
     # Needed for edit form selects
     customers = cursor.execute('SELECT id, name FROM customers ORDER BY name').fetchall()
     users = cursor.execute('SELECT id, username FROM users ORDER BY username').fetchall()
@@ -195,10 +206,12 @@ def list_logs():
 @app.route('/logs/delete/<int:log_id>', methods=['POST'])
 @login_required
 def delete_log(log_id):
+    if current_user.role != 'manager':
+        return 'Unauthorized', 403
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Both roles: can delete only their own logs
-    cursor.execute('DELETE FROM logs WHERE id=? AND user_id=?', (log_id, current_user.id))
+    # Manager can delete any log
+    cursor.execute('DELETE FROM logs WHERE id=?', (log_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('list_logs'))
@@ -206,16 +219,18 @@ def delete_log(log_id):
 @app.route('/logs/edit/<int:log_id>', methods=['POST'])
 @login_required
 def edit_log(log_id):
+    if current_user.role != 'manager':
+        return 'Unauthorized', 403
     customer_id = request.form.get('customer_id')
     hours = request.form.get('hours')
     work_date = request.form.get('work_date')
     description = request.form.get('description', '')
-    # Only allow editing own logs
+    assign_user_id = request.form.get('user_id')
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute('''UPDATE logs SET customer_id=?, hours=?, work_date=?, description=?
-                      WHERE id=? AND user_id=?''', (customer_id, float(hours), work_date, description, log_id, current_user.id))
+    cursor.execute('''UPDATE logs SET customer_id=?, hours=?, work_date=?, description=?, user_id=?
+                      WHERE id=?''', (customer_id, float(hours), work_date, description, assign_user_id, log_id))
     conn.commit()
     conn.close()
     return redirect(url_for('list_logs'))
@@ -351,6 +366,100 @@ def report():
         total_revenue=total_revenue,
         total_profit=total_revenue - total_cost,
     )
+
+@app.route('/hours_report')
+@login_required
+def hours_report():
+    # Only manager and טניה can access
+    if current_user.role != 'manager' and current_user.username != 'טניה':
+        return 'Unauthorized', 403
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    # Get daily hours by worker
+    daily_query = '''
+        SELECT u.username, l.work_date, SUM(l.hours) as total_hours
+        FROM logs l
+        JOIN users u ON l.user_id = u.id
+        WHERE l.work_date IS NOT NULL AND l.work_date != ''
+        GROUP BY u.username, l.work_date
+        ORDER BY u.username, l.work_date
+    '''
+    daily_data = cursor.execute(daily_query).fetchall()
+    
+    # Get monthly hours by worker
+    monthly_query = '''
+        SELECT u.username, substr(l.work_date, 1, 7) as month, SUM(l.hours) as total_hours
+        FROM logs l
+        JOIN users u ON l.user_id = u.id
+        WHERE l.work_date IS NOT NULL AND l.work_date != ''
+        GROUP BY u.username, substr(l.work_date, 1, 7)
+        ORDER BY u.username, month
+    '''
+    monthly_data = cursor.execute(monthly_query).fetchall()
+    
+    conn.close()
+    
+    return render_template('hours_report.html', daily_data=daily_data, monthly_data=monthly_data)
+
+@app.route('/hours_report/export')
+@login_required
+def export_hours_report():
+    # Only manager and טניה can access
+    if current_user.role != 'manager' and current_user.username != 'טניה':
+        return 'Unauthorized', 403
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    # Get daily hours by worker
+    daily_query = '''
+        SELECT u.username, l.work_date, SUM(l.hours) as total_hours
+        FROM logs l
+        JOIN users u ON l.user_id = u.id
+        WHERE l.work_date IS NOT NULL AND l.work_date != ''
+        GROUP BY u.username, l.work_date
+        ORDER BY u.username, l.work_date
+    '''
+    daily_data = cursor.execute(daily_query).fetchall()
+    
+    # Get monthly hours by worker
+    monthly_query = '''
+        SELECT u.username, substr(l.work_date, 1, 7) as month, SUM(l.hours) as total_hours
+        FROM logs l
+        JOIN users u ON l.user_id = u.id
+        WHERE l.work_date IS NOT NULL AND l.work_date != ''
+        GROUP BY u.username, substr(l.work_date, 1, 7)
+        ORDER BY u.username, month
+    '''
+    monthly_data = cursor.execute(monthly_query).fetchall()
+    
+    conn.close()
+    
+    # Create CSV response
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write daily report
+    writer.writerow(['Daily Hours Report'])
+    writer.writerow(['Worker', 'Date', 'Hours'])
+    for row in daily_data:
+        writer.writerow([row[0], row[1], row[2]])
+    
+    writer.writerow([])  # Empty row
+    
+    # Write monthly report
+    writer.writerow(['Monthly Hours Report'])
+    writer.writerow(['Worker', 'Month', 'Hours'])
+    for row in monthly_data:
+        writer.writerow([row[0], row[1], row[2]])
+    
+    # Create response
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    response.headers['Content-Disposition'] = 'attachment; filename=hours_report.csv'
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True)

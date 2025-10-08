@@ -1,8 +1,4 @@
-
 import sqlite3
-
-# Treat any 'nan' literals below as SQL NULLs
-nan = None
 
 conn = sqlite3.connect('database.db')
 cursor = conn.cursor()
@@ -27,21 +23,29 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS logs (
     user_id INTEGER,
     customer_id INTEGER,
     hours REAL,
+    description TEXT,
+    work_date TEXT,
     FOREIGN KEY(user_id) REFERENCES users(id),
     FOREIGN KEY(customer_id) REFERENCES customers(id)
 )''')
 
-# Add workers
+# Clear existing data to avoid duplicates
+cursor.execute("DELETE FROM users")
+cursor.execute("DELETE FROM customers")
+
+# Add workers with unique passwords
 workers = [
-    ('איריס', '1234', 'worker', 100),
-    ('מאי', '1234', 'worker', 100),
-    ('יורי', '1234', 'worker', 100),
-    ('אולגה', '1234', 'worker', 100),
-    ('חדווה', '1234', 'worker', 100)
+    ('טניה', 't4n1', 'worker', 100),
+    ('אולגה', 'o1g4', 'worker', 100),
+    ('איריס', 'i2r3', 'worker', 100),
+    ('מאי', 'm4y1', 'worker', 100),
+    ('חדווה', 'h4d1', 'worker', 100),
+    ('יורי', 'y2r1', 'worker', 100),
+    ('גלית', 'g4l1', 'worker', 100)
 ]
 
-# Add manager
-manager = ('רן', 'admin', 'manager', 0)
+# Add manager with new password
+manager = ('רן', 'admin4375', 'manager', 0)
 
 for user in workers:
     cursor.execute("INSERT INTO users (username, password, role, pay_rate) VALUES (?, ?, ?, ?)", user)
@@ -264,10 +268,19 @@ customers = [
     ('עזתי אהרן ו/או שלומית', 245.83),
     ('הרא""ה מרום השקעות בע""מ', 1989.0),
 ]
+
 for customer in customers:
-    cursor.execute("INSERT OR IGNORE INTO customers (name, pay_rate) VALUES (?, ?)", customer)
-    cursor.execute("UPDATE customers SET pay_rate=? WHERE name=?", (customer[1], customer[0]))
+    cursor.execute("INSERT INTO customers (name, pay_rate) VALUES (?, ?)", customer)
 
 conn.commit()
 conn.close()
 print("Database initialized with users and customers.")
+print("\nWorker passwords:")
+print("טניה: t4n1")
+print("אולגה: o1g4") 
+print("איריס: i2r3")
+print("מאי: m4y1")
+print("חדווה: h4d1")
+print("יורי: y2r1")
+print("גלית: g4l1")
+print("\nManager password: admin4375")

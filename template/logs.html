@@ -19,7 +19,6 @@
 
   <div class="container vstack gap-3">
     <form method="GET" class="row g-2 align-items-end">
-      {% if current_user.role == 'manager' %}
       <div class="col-auto">
         <label class="form-label">Filter worker</label>
         <select name="user_id" class="form-select">
@@ -29,7 +28,6 @@
           {% endfor %}
         </select>
       </div>
-      {% endif %}
       <div class="col-auto"><button class="btn btn-primary" type="submit">Apply</button></div>
     </form>
 
@@ -57,7 +55,13 @@
                 </td>
                 <td style="max-width:110px"><input class="form-control form-control-sm" type="number" step="0.1" name="hours" value="{{ r[3] }}" form="edit-{{ r[0] }}"></td>
                 <td><input class="form-control form-control-sm" type="text" name="description" value="{{ r[4] }}" form="edit-{{ r[0] }}"></td>
-                <td>{{ r[5] }}</td>
+                <td>
+                  <select name="user_id" class="form-select form-select-sm" form="edit-{{ r[0] }}">
+                    {% for u in users %}
+                      <option value="{{ u[0] }}" {% if u[1]==r[5] %}selected{% endif %}>{{ u[1] }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
                 <td>
                   <div class="d-flex gap-2">
                     <button class="btn btn-sm btn-primary" type="submit" form="edit-{{ r[0] }}">Save</button>
